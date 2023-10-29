@@ -1,0 +1,4 @@
+Name,Parent,Semi-major Axis (m),Eccentricity,Radius (m),Orbital Period (s),Day Length (s)
+Sun,N/A,0,0,694439000,0,2192832
+Earth,Sun,1.496E+11,0.0167,6371000,31557600,86400
+Moon,Earth,384171300,0.0549,1732912,2358720,2358720
