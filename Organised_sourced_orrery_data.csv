@@ -1,11 +1,22 @@
-BodyName,Parent,Mass (kg),Volumetric mean radius (km),SemiMajorAxis (km),Siderial orbital period (days),Orbit inclination (deg),Orbital eccentricity,Sidereal Rotation Period (hrs),Obliquity to orbit (deg),Color
-Sun,None,1.99E+30,696340000,0.00E+00,1,0,0,609.12,0,253-184-19
-Mercury,Sun,3.30E+23,2439700,5.79E+10,87.969,7.004,0.2056,1407.6,0.034,169-169-169
-Venus,Sun,,,,,,,,,
-Earth,Sun,,,,,,,,,
-Moon,Earth,,,,,,,,,
-Mars,Sun,,,,,,,,,
-Jupiter,Sun,,,,,,,,,
+BodyName,Parent,Mass (kg),Volumetric mean radius (km),Semimajor axis (km),Siderial orbital period (days),Orbit inclination (deg),Orbital eccentricity,Sidereal rotation period (hrs),Obliquity to orbit (deg),Color (rgb)
+Sun,None,1.99E+24,695700,0.00E+00,1,0,0,609.12,7.25,253-184-19
+Mercury,Sun,3.30E+23,2439.7,5.79E+07,87.969,7.004,0.2056,1407.6,0.034,183-184-185
+Venus,Sun,4.87E+24,6051.8,1.08E+08,224.701,3.395,0.0068,-5832.6,177.36,238-208-83
+Earth,Sun,5.97E+24,6371,1.50E+08,365.256,0,0.0167,23.9345,23.44,23-57-61
+Moon,Earth,7.35E+22,1737.4,3.84E+05,27.3217,23.43,0.0549,655.7208,6.68,246-241-213
+Mars,Sun,6.42E+23,3389.5,2.28E+08,686.98,1.848,0.0935,24.6597,25.19,156-46-53
+Phobos,Mars,1.06E+16,11.16666667,9.38E+03,0.31891,1.08,0.0151,7.65384,0,150-150-150
+Deimos,Mars,2.40E+15,6.233333333,2.35E+04,1.26244,1.79,0.0005,30.29856,0,125-115-105
+Ceres,Sun,9.39E+20,939,4.14E+08,1680.1776,10.59,0.0758,9.074,11,125-125-125
+Pallas,Sun,2.05E+20,546,4.15E+08,1683.83016,34.84,0.231,7.813,84,200-200-200
+Vesta,Sun,2.59E+20,525.6666667,3.53E+08,1325.87928,7.14,0.0889,5.342,33,146-136-126
+Asteroid belt,Sun,8.97E+20,1,314155528-489933027,1621.73664,0,0,,,126-121-111
+Jupiter,Sun,1.90E+27,69911,7.78E+08,4332.589,1.304,0.0487,9.925,3.13,176-127-53
+Io,Jupiter,8.93E+22,1821.5,4.22E+05,1.769138,0.04,0.004,42.459312,0,220-200-90
+Europa,Jupiter,4.80E+22,1560.8,6.71E+05,3.551181,0.47,0.009,85.228344,0,170-160-120
+Ganymede,Jupiter,1.48E+23,2631.2,1.07E+06,7.154553,0.18,0.001,171.709272,0,170-165-150
+Callisto,Jupiter,1.08E+23,2410.3,1.88E+06,16.689017,0.19,0.007,400.536408,0,70-100-80
+Jupiter ring,Jupiter,,100,123000-128940,0.2925,0,0,,,20-20-20
 Saturn,Sun,,,,,,,,,
 Uranus,Sun,,,,,,,,,
 Neptune,Sun,,,,,,,,,

@@ -43,7 +43,7 @@ class Orrery(QWidget):
 
         self.bodies = []
         self.bodies_by_name = {}
-        self.load_celestial_bodies_from_csv("orrery_data_si.csv")
+        self.load_celestial_bodies_from_csv("Organised_sourced_orrery_data.csv")
 
         # Calculate max distance for dynamic scaling
         self.max_distance = max([body.a * (1 + body.e) for body in self.bodies])
@@ -60,20 +60,28 @@ class Orrery(QWidget):
                     # Use zip_longest to fill in missing values with None
                     unpacked_row = list(zip_longest(headers, row, fillvalue=None))
                     
-                    # Convert to appropriate types or set to None if data is missing
-                    parent_name, a, e, T, color, sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo = [unpacked_row[i][1] for i in range(1, 13)]
-                    
-                    a, e, T = map(lambda x: float(x) if x else None, [a, e, T])
-                    sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo = map(lambda x: float(x) if x else None, [sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo])
+                    # Unpack and convert to appropriate types or set to None if data is missing
+                    body_name, parent_name, mass, radius, a, T, inclination, e, sidereal_rotation_period, _, color = [unpacked_row[i][1] for i in range(11)]
+                    a, e, T, mass, radius, inclination, sidereal_rotation_period = map(lambda x: float(x.replace("E", "e")) if x else None, [a, e, T, mass, radius, inclination, sidereal_rotation_period])
                     r, g, b = map(int, color.split('-')) if color else (None, None, None)
-                    parent = self.bodies_by_name.get(parent_name) if parent_name else None
 
+                    # Convert units to SI
+                    if a is not None:
+                        a *= 1e3  # km to m
+                    if T is not None:
+                        T *= 24 * 60 * 60  # days to seconds
+                    if sidereal_rotation_period is not None:
+                        sidereal_rotation_period *= 60 * 60  # hrs to seconds
+                    
+                    # Check for parent
+                    parent = self.bodies_by_name.get(parent_name) if parent_name and parent_name != 'None' else None
+                    
                     # Check for essential attributes for rendering
                     if None in [a, e, T, r, g, b]:
                         print(f"Skipping {body_name} due to missing essential data.")
                         continue
 
-                    body = CelestialBody(parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo)
+                    body = CelestialBody(parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination, None, None, None)
                     self.bodies.append(body)
                     self.bodies_by_name[body_name] = body
                 except Exception as e:
