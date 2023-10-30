@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QHBoxLayout, QSizePolicy
+from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QTextEdit, QFrame
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPainter, QColor, QBrush
 import sys
@@ -88,7 +88,7 @@ class Orrery(QWidget):
 
         self.time_slider = QSlider(Qt.Orientation.Horizontal)
         self.time_slider.setMinimum(1)
-        self.time_slider.setMaximum(100)
+        self.time_slider.setMaximum(1000)
         self.time_slider.setValue(7)
         self.time_slider.valueChanged.connect(self.updateTimeStep)
 
@@ -98,22 +98,64 @@ class Orrery(QWidget):
         self.time_step = self.time_slider.value() * 7 * 24 * 3600
         self.label.setText(f'Weeks/s: {self.time_slider.value()}')
 
+        self.paused = False
+        self.info_display = QTextEdit()
+        self.info_display.setStyleSheet("background-color: black; color: white;")
+        self.info_display.setReadOnly(True)
+        self.info_display.setFixedWidth(200)
+        self.info_display.setVisible(False)  # Initially set to hidden
+        
+        self.pause_button = QPushButton('Pause')
+        self.pause_button.clicked.connect(self.togglePause)
+        
         hlayout = QHBoxLayout()
         hlayout.addWidget(self.time_slider)
         hlayout.addWidget(self.label)
+        hlayout.addWidget(self.pause_button)
 
-        layout = QVBoxLayout()
-        layout.addStretch(1)
-        layout.addLayout(hlayout)
-
-        self.setLayout(layout)
+        sim_layout = QVBoxLayout()
+        sim_layout.addStretch(1)
+        sim_layout.addLayout(hlayout)
+        
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(sim_layout)
+        main_layout.addWidget(self.info_display)
+        
+        self.setLayout(main_layout)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.updateTime)
         self.timer.start(8)
 
-        self.resize(800, 800)
+        self.resize(2560, 1440)
         self.show()
+
+    def togglePause(self):
+        self.paused = not self.paused
+        self.pause_button.setText('Resume' if self.paused else 'Pause')
+
+    def resizeEvent(self, event):
+        self.updateTimeStep()  # Clear trails on window resize
+    
+    def mousePressEvent(self, event):
+        click_x, click_y = event.position().x(), event.position().y()
+        found = False
+        for body in self.bodies:
+            x, y = body.position(self.time)
+            x, y = int(self.width() / 2 + x / self.scaling_factor), int(self.height() / 2 + y / self.scaling_factor)
+            if abs(click_x - x) < 5 and abs(click_y - y) < 5:
+                self.showBodyInfo(body)
+                found = True
+                break
+
+            for trail_x, trail_y in body.trail:
+                if abs(click_x - trail_x) < 5 and abs(click_y - trail_y) < 5:
+                    self.showBodyInfo(body)
+                    found = True
+                    break
+
+        if not found:
+            self.info_display.setVisible(False)
 
     def updateTimeStep(self):
         value = self.time_slider.value()
@@ -122,20 +164,30 @@ class Orrery(QWidget):
         
         for body in self.bodies:
             body.trail.clear()
+    
+    def showBodyInfo(self, body):
+        info = f"Body Information:\n"
+        info += f"a: {body.a}\n"
+        info += f"e: {body.e}\n"
+        info += f"T: {body.T}\n"
+        self.info_display.setText(info)
+        self.info_display.setVisible(True)
 
     def updateTime(self):
-        self.time += self.time_step * (8 / 1000)
-        for body in self.bodies:
-            x, y = body.position(self.time)
-            x, y = int(self.width() / 2 + x / self.scaling_factor), int(self.height() / 2 + y / self.scaling_factor)
-            body.trail.append((x, y))
-            body.trail = body.trail[-500:]
+        if not self.paused:
+            self.time += self.time_step * (8 / 1000)
+            for body in self.bodies:
+                x, y = body.position(self.time)
+                x, y = int(self.width() / 2 + x / self.scaling_factor), int(self.height() / 2 + y / self.scaling_factor)
+                body.trail.append((x, y))
+                body.trail = body.trail[-500:]
 
         self.update()
 
     def paintEvent(self, event):
         qp = QPainter(self)
-        self.scaling_factor = self.max_distance / (self.width() / 3)
+        qp.setPen(Qt.PenStyle.NoPen)  # This line ensures no outline is drawn
+        self.scaling_factor = self.max_distance / (self.width() / 2.1)
         for body in self.bodies:
             qp.setBrush(QBrush(body.color, Qt.BrushStyle.SolidPattern))
             x, y = body.position(self.time)
