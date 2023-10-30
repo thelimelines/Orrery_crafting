@@ -3,15 +3,24 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPainter, QColor, QBrush
 import sys
 import numpy as np
+import csv
+from itertools import zip_longest
 
 class CelestialBody:
-    def __init__(self, parent, a, e, T, color):
+    def __init__(self, parent, a, e, T, color, sidereal_rotation_period=None, radius=None, mass=None, inclination=None, lon_of_asc_node=None, arg_of_periapsis=None, albedo=None):
         self.parent = parent
         self.a = a
         self.e = e
         self.T = T
         self.color = color
-        self.trail = []  # To store the trail
+        self.trail = []
+        self.sidereal_rotation_period = sidereal_rotation_period
+        self.radius = radius
+        self.mass = mass
+        self.inclination = inclination
+        self.lon_of_asc_node = lon_of_asc_node
+        self.arg_of_periapsis = arg_of_periapsis
+        self.albedo = albedo
 
     def position(self, time):
         theta = 2 * np.pi * (time % self.T) / self.T
@@ -32,21 +41,43 @@ class Orrery(QWidget):
         self.time = 0
         self.scaling_factor = 1
 
-        # Initialize celestial bodies
-        self.sun = CelestialBody(None, 0, 0, 1, QColor(255, 255, 0))
-        self.mercury = CelestialBody(self.sun, 5.791e10, 0.2056, 88.0 * 24 * 3600, QColor(169, 169, 169))
-        self.venus = CelestialBody(self.sun, 1.082e11, 0.0068, 225 * 24 * 3600, QColor(255, 215, 0))
-        self.earth = CelestialBody(self.sun, 1.496e11, 0.0167, 365.25 * 24 * 3600, QColor(0, 0, 255))
-        self.moon = CelestialBody(self.earth, 3.844e9, 0.0549, 27.3 * 24 * 3600, QColor(128, 128, 128))
-        self.mars = CelestialBody(self.sun, 2.279e11, 0.0934, 687 * 24 * 3600, QColor(255, 0, 0))
-
-        self.bodies = [self.sun, self.mercury, self.venus, self.earth, self.moon, self.mars]
-
+        self.bodies = []
+        self.bodies_by_name = {}
+        self.load_celestial_bodies_from_csv("orrery_data_si.csv")
 
         # Calculate max distance for dynamic scaling
         self.max_distance = max([body.a * (1 + body.e) for body in self.bodies])
-        
+
         self.initUI()
+
+    def load_celestial_bodies_from_csv(self, csv_file):
+        with open(csv_file, 'r') as f:
+            reader = csv.reader(f)
+            headers = next(reader)  # Skip the header row
+            for row in reader:
+                body_name = row[0]  # Unpack body_name first
+                try:
+                    # Use zip_longest to fill in missing values with None
+                    unpacked_row = list(zip_longest(headers, row, fillvalue=None))
+                    
+                    # Convert to appropriate types or set to None if data is missing
+                    parent_name, a, e, T, color, sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo = [unpacked_row[i][1] for i in range(1, 13)]
+                    
+                    a, e, T = map(lambda x: float(x) if x else None, [a, e, T])
+                    sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo = map(lambda x: float(x) if x else None, [sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo])
+                    r, g, b = map(int, color.split('-')) if color else (None, None, None)
+                    parent = self.bodies_by_name.get(parent_name) if parent_name else None
+
+                    # Check for essential attributes for rendering
+                    if None in [a, e, T, r, g, b]:
+                        print(f"Skipping {body_name} due to missing essential data.")
+                        continue
+
+                    body = CelestialBody(parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination, lon_of_asc_node, arg_of_periapsis, albedo)
+                    self.bodies.append(body)
+                    self.bodies_by_name[body_name] = body
+                except Exception as e:
+                    print(f"Error processing {body_name}: {e}")
 
     def initUI(self):
         self.setWindowTitle('Orrery')

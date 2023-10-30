@@ -1,4 +1,7 @@
-Name,Parent,Semi-major Axis (m),Eccentricity,Radius (m),Orbital Period (s),Day Length (s)
-Sun,N/A,0,0,694439000,0,2192832
-Earth,Sun,1.496E+11,0.0167,6371000,31557600,86400
-Moon,Earth,384171300,0.0549,1732912,2358720,2358720
+BodyName,Parent,SemiMajorAxis,Eccentricity,OrbitalPeriod,Color,SiderealRotationPeriod,Radius,Mass,Inclination,LongitudeOfAscendingNode,ArgumentOfPeriapsis,Albedo
+Sun,None,0,0,1,255-255-0,24.47,6.9634e8,1.989e30,0,0,0,0.3
+Mercury,Sun,5.791e10,0.2056,7567680,169-169-169,58.6,2.4397e6,3.3011e23,7,48.3,29.1,0.068
+Venus,Sun,1.082e11,0.0068,19440000,255-215-0
+Earth,Sun,1.496e11,0.0167,31557600,0-0-255
+Moon,Earth,3.844e9,0.0549,2363040,128-128-128
+Mars,Sun,2.279e11,0.0934,59443200,255-0-0
