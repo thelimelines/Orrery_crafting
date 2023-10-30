@@ -2,12 +2,27 @@ from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPainter, QColor, QBrush
 import sys
+from scipy.optimize import root_scalar
 import numpy as np
 import csv
 from itertools import zip_longest
 
+def format_number(num):
+    if num is None:
+        return "N/A"
+    elif num == 0:
+        return "0"
+    else:
+        order_of_magnitude = np.floor(np.log10(np.abs(num)))
+        if abs(order_of_magnitude) >= 4:  # Using scientific notation for numbers >= 10,000 or <= 0.0001
+            return "{:.3e}".format(num)
+        else:
+            # Formatting to 3 significant figures
+            return "{:,.{precision}g}".format(num, precision=3)
+
 class CelestialBody:
-    def __init__(self, parent, a, e, T, color, sidereal_rotation_period=None, radius=None, mass=None, inclination=None, lon_of_asc_node=None, arg_of_periapsis=None, albedo=None):
+    def __init__(self, body_name, parent, a, e, T, color, sidereal_rotation_period=None, radius=None, mass=None, inclination=None, axial_tilt=None):
+        self.body_name = body_name
         self.parent = parent
         self.a = a
         self.e = e
@@ -18,16 +33,22 @@ class CelestialBody:
         self.radius = radius
         self.mass = mass
         self.inclination = inclination
-        self.lon_of_asc_node = lon_of_asc_node
-        self.arg_of_periapsis = arg_of_periapsis
-        self.albedo = albedo
+        self.axial_tilt = axial_tilt
 
     def position(self, time):
-        theta = 2 * np.pi * (time % self.T) / self.T
-        r = self.a * (1 - self.e ** 2) / (1 + self.e * np.cos(theta))
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        
+        # Mean Anomaly
+        M = 2 * np.pi / self.T * time
+
+        # Solve for Eccentric Anomaly (using Newton's method)
+        E = root_scalar(lambda E: E - self.e * np.sin(E) - M, x0=M, x1=M + 0.1).root
+
+        # True Anomaly
+        theta = 2 * np.arctan(np.sqrt((1 + self.e) / (1 - self.e)) * np.tan(E / 2))
+
+        # Position
+        x = self.a * (np.cos(theta) - self.e)
+        y = self.a * np.sqrt(1 - self.e ** 2) * np.sin(theta)
+
         if self.parent:
             px, py = self.parent.position(time)
             x += px
@@ -61,7 +82,7 @@ class Orrery(QWidget):
                     unpacked_row = list(zip_longest(headers, row, fillvalue=None))
                     
                     # Unpack and convert to appropriate types or set to None if data is missing
-                    body_name, parent_name, mass, radius, a, T, inclination, e, sidereal_rotation_period, _, color = [unpacked_row[i][1] for i in range(11)]
+                    body_name, parent_name, mass, radius, a, T, inclination, e, sidereal_rotation_period, axial_tilt, color = [unpacked_row[i][1] for i in range(11)]
                     a, e, T, mass, radius, inclination, sidereal_rotation_period = map(lambda x: float(x.replace("E", "e")) if x else None, [a, e, T, mass, radius, inclination, sidereal_rotation_period])
                     r, g, b = map(int, color.split('-')) if color else (None, None, None)
 
@@ -81,7 +102,7 @@ class Orrery(QWidget):
                         print(f"Skipping {body_name} due to missing essential data.")
                         continue
 
-                    body = CelestialBody(parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination, None, None, None)
+                    body = CelestialBody(body_name,parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination)
                     self.bodies.append(body)
                     self.bodies_by_name[body_name] = body
                 except Exception as e:
@@ -110,7 +131,7 @@ class Orrery(QWidget):
         self.info_display = QTextEdit()
         self.info_display.setStyleSheet("background-color: black; color: white;")
         self.info_display.setReadOnly(True)
-        self.info_display.setFixedWidth(200)
+        self.info_display.setFixedWidth(250)
         self.info_display.setVisible(False)  # Initially set to hidden
         
         self.pause_button = QPushButton('Pause')
@@ -174,10 +195,16 @@ class Orrery(QWidget):
             body.trail.clear()
     
     def showBodyInfo(self, body):
-        info = f"Body Information:\n"
-        info += f"a: {body.a}\n"
-        info += f"e: {body.e}\n"
-        info += f"T: {body.T}\n"
+        info = f"Body Information:{body.body_name}\n\n"
+        info += "--- Planetary Properties ---\n"
+        info += f"Mass: {format_number(body.mass)} kg\n" if body.mass else ""
+        info += f"Volumetric mean radius: {format_number(body.radius)} m\n" if body.radius else ""
+        info += f"Axial Tilt: {format_number(body.axial_tilt)} degrees\n" if body.axial_tilt else ""
+        info += "\n--- Orbital Parameters ---\n"
+        info += f"Semi-major Axis (a): {format_number(body.a)} m\n"
+        info += f"Eccentricity (e): {format_number(body.e)}\n"
+        info += f"Siderial orbital Period (T): {format_number(body.T)} s\n"
+        info += f"Inclination: {format_number(body.inclination)} degrees\n" if body.inclination else ""
         self.info_display.setText(info)
         self.info_display.setVisible(True)
 
@@ -195,7 +222,7 @@ class Orrery(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setPen(Qt.PenStyle.NoPen)  # This line ensures no outline is drawn
-        self.scaling_factor = self.max_distance / (self.width() / 2.1)
+        self.scaling_factor = self.max_distance / (self.width() / 2.5)
         for body in self.bodies:
             qp.setBrush(QBrush(body.color, Qt.BrushStyle.SolidPattern))
             x, y = body.position(self.time)
