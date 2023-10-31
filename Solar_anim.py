@@ -103,6 +103,11 @@ class Orrery(QWidget):
                         continue
 
                     body = CelestialBody(body_name,parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination)
+                    # Check if grandparent is the "Sun" and modify 'a' accordingly
+                    if parent and parent.parent and parent.parent.body_name == "Sun":
+                        body.a *= 50
+                        if parent.body_name == "Mars":
+                            body.a *= 30
                     self.bodies.append(body)
                     self.bodies_by_name[body_name] = body
                 except Exception as e:
@@ -156,7 +161,7 @@ class Orrery(QWidget):
         self.timer.timeout.connect(self.updateTime)
         self.timer.start(8)
 
-        self.resize(2560, 1440)
+        self.resize(1440, 1440)
         self.show()
 
     def togglePause(self):
@@ -195,7 +200,7 @@ class Orrery(QWidget):
             body.trail.clear()
     
     def showBodyInfo(self, body):
-        info = f"Body Information:{body.body_name}\n\n"
+        info = f"Body Information: {body.body_name}\n\n"
         info += "--- Planetary Properties ---\n"
         info += f"Mass: {format_number(body.mass)} kg\n" if body.mass else ""
         info += f"Volumetric mean radius: {format_number(body.radius)} m\n" if body.radius else ""
