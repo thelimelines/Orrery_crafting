@@ -108,6 +108,12 @@ class Orrery(QWidget):
                         body.a *= 50
                         if parent.body_name == "Mars":
                             body.a *= 30
+                        if parent.body_name == "Jupiter" or parent.body_name == "Saturn":
+                            body.a *= 2
+                        if parent.body_name == "Uranus" or parent.body_name == "Neptune":
+                            body.a *= 10
+                        if parent.body_name == "Plutonian barycentre" or parent.body_name == "Eris":
+                            body.a *= 100
                     self.bodies.append(body)
                     self.bodies_by_name[body_name] = body
                 except Exception as e:
@@ -203,7 +209,7 @@ class Orrery(QWidget):
         info = f"Body Information: {body.body_name}\n\n"
         info += "--- Planetary Properties ---\n"
         info += f"Mass: {format_number(body.mass)} kg\n" if body.mass else ""
-        info += f"Volumetric mean radius: {format_number(body.radius)} m\n" if body.radius else ""
+        info += f"Volumetric mean radius: {format_number(body.radius*1000)} m\n" if body.radius else ""
         info += f"Axial Tilt: {format_number(body.axial_tilt)} degrees\n" if body.axial_tilt else ""
         info += "\n--- Orbital Parameters ---\n"
         info += f"Semi-major Axis (a): {format_number(body.a)} m\n"
@@ -227,7 +233,7 @@ class Orrery(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setPen(Qt.PenStyle.NoPen)  # This line ensures no outline is drawn
-        self.scaling_factor = self.max_distance / (self.width() / 2.5)
+        self.scaling_factor = self.max_distance / (self.width() / 0.175)
         for body in self.bodies:
             qp.setBrush(QBrush(body.color, Qt.BrushStyle.SolidPattern))
             x, y = body.position(self.time)
