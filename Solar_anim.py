@@ -68,6 +68,7 @@ class Orrery(QWidget):
 
         # Calculate max distance for dynamic scaling
         self.max_distance = max([body.a * (1 + body.e) for body in self.bodies])
+        self.scaling_factor = self.max_distance / (self.width() / 0.175)
 
         self.initUI()
 
@@ -112,7 +113,9 @@ class Orrery(QWidget):
                             body.a *= 2
                         if parent.body_name == "Uranus" or parent.body_name == "Neptune":
                             body.a *= 10
-                        if parent.body_name == "Plutonian barycentre" or parent.body_name == "Eris":
+                        if parent.body_name == "Plutonian barycentre":
+                            body.a *= 200
+                        if parent.body_name == "Eris":
                             body.a *= 100
                     self.bodies.append(body)
                     self.bodies_by_name[body_name] = body
@@ -233,7 +236,6 @@ class Orrery(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setPen(Qt.PenStyle.NoPen)  # This line ensures no outline is drawn
-        self.scaling_factor = self.max_distance / (self.width() / 0.175)
         for body in self.bodies:
             qp.setBrush(QBrush(body.color, Qt.BrushStyle.SolidPattern))
             x, y = body.position(self.time)

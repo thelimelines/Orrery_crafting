@@ -1,4 +1,4 @@
-BodyName,Parent,Mass (kg),Volumetric mean radius (km),Semimajor axis (km),Siderial orbital period (days),Orbit inclination (deg),Orbital eccentricity,Sidereal rotation period (hrs),Obliquity to orbit (deg),Color (rgb)
+BodyName,Parent,Mass (kg),Volumetric mean radius (km),Semimajor axis (km),Sidereal orbital period (days),Orbit inclination (deg),Orbital eccentricity,Sidereal rotation period (hrs),Obliquity to orbit (deg),Color (rgb)
 Sun,None,1.99E+24,695700,0.00E+00,1,0,0,609.12,7.25,253-184-19
 Mercury,Sun,3.30E+23,2439.7,5.79E+07,87.969,7.004,0.2056,1407.6,0.034,183-184-185
 Venus,Sun,4.87E+24,6051.8,1.08E+08,224.701,3.395,0.0068,-5832.6,177.36,238-208-83
