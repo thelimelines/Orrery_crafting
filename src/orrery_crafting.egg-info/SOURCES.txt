@@ -3,6 +3,7 @@ pyproject.toml
 src/orrery_app/__init__.py
 src/orrery_app/__main__.py
 src/orrery_app/app.py
+src/orrery_app/gear_models.py
 src/orrery_app/models.py
 src/orrery_app/opengl_view.py
 src/orrery_app/spice_service.py

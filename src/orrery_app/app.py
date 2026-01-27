@@ -1,48 +1,47 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from PySide6.QtCore import QDateTime, QObject, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QSurfaceFormat
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QToolButton,
+    QComboBox,
     QDateTimeEdit,
+    QDoubleSpinBox,
     QFileDialog,
-    QFrame,
     QFormLayout,
+    QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSlider,
+    QSpinBox,
     QSplitter,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
-    QDoubleSpinBox,
-    QSpinBox,
-    QGroupBox,
-    QMessageBox,
-    QSlider,
-    QComboBox,
 )
-from PySide6.QtGui import QSurfaceFormat
 
 from Gear_calc import compute_gear_train
+
 from .gear_models import ArmRenderSpec, GearRenderSpec
-from .models import BODY_BY_NAME, BODY_CATALOG, BodySettings, OrbitStats, BodyState
+from .models import BODY_BY_NAME, BODY_CATALOG, BodySettings, BodyState, OrbitStats
 from .opengl_view import OrreryGLWidget
 from .spice_service import SpiceEphemeris
 from .widgets import TimeProgressionOverlay
@@ -72,7 +71,7 @@ class KernelLoadWorker(QObject):
 class GearTrainEntry:
     train_id: str
     target_body: str
-    gear_pairs: List[Tuple[int, int]]
+    gear_pairs: list[tuple[int, int]]
     input_gear_id: str
     ratio_target: float
     ratio_achieved: float
@@ -85,32 +84,32 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Orrery Crafting - SPICE Viewer")
         self.resize(1300, 800)
 
-        self._settings: Dict[str, BodySettings] = {
+        self._settings: dict[str, BodySettings] = {
             body.name: BodySettings() for body in BODY_CATALOG
         }
         self._positions = {}
-        self._rotations: Dict[str, np.ndarray] = {}
-        self._spin_dirs: Dict[str, float] = {}
-        self._orbit_stats: Dict[str, OrbitStats] = {}
-        self._orbit_stats_key: Optional[Tuple[str, int, int]] = None
-        self._moon_bands_by_parent: Dict[str, Tuple[Tuple[float, float], ...]] = {}
-        self._focused_system: Optional[str] = None
+        self._rotations: dict[str, np.ndarray] = {}
+        self._spin_dirs: dict[str, float] = {}
+        self._orbit_stats: dict[str, OrbitStats] = {}
+        self._orbit_stats_key: tuple[int, int] | None = None
+        self._moon_bands_by_parent: dict[str, tuple[tuple[float, float], ...]] = {}
+        self._focused_system: str | None = None
         self._did_initial_load = False
         self._kernels_loaded = False
         self._textures_loaded = False
         self._gl_ready = False
         self._textures_started = False
-        self._focused_body: Optional[str] = None
-        self._solar_plane_normal: Optional[Tuple[float, float, float]] = None
-        self._moon_bands_by_parent: Dict[str, Tuple[Tuple[float, float], ...]] = {}
-        self._focused_system: Optional[str] = None
-        self._orbit_paths: Dict[str, np.ndarray] = {}
-        self._orbit_paths_key: Optional[Tuple[int, int, datetime, bool, Optional[str], float, float, float, float]] = None
-        self._orbit_path_centers: Dict[str, Optional[str]] = {}
-        self._planet_bounds: Dict[str, Tuple[float, float]] = {}
+        self._focused_body: str | None = None
+        self._solar_plane_normal: tuple[float, float, float] | None = None
+        self._moon_bands_by_parent: dict[str, tuple[tuple[float, float], ...]] = {}
+        self._focused_system: str | None = None
+        self._orbit_paths: dict[str, np.ndarray] = {}
+        self._orbit_paths_key: tuple[int, int, datetime, bool, str | None, float, float, float, float] | None = None
+        self._orbit_path_centers: dict[str, str | None] = {}
+        self._planet_bounds: dict[str, tuple[float, float]] = {}
         self._planet_scale = 1.0
-        self._moon_scaled_bounds: Dict[str, Tuple[float, float]] = {}
-        self._moon_scale_by_parent: Dict[str, float] = {}
+        self._moon_scaled_bounds: dict[str, tuple[float, float]] = {}
+        self._moon_scale_by_parent: dict[str, float] = {}
 
         self.spice = SpiceEphemeris()
 
@@ -129,13 +128,13 @@ class MainWindow(QMainWindow):
         self._time_timer.setInterval(33)
         self._time_timer.timeout.connect(self._advance_time)
 
-        self._gear_trains: List[GearTrainEntry] = []
-        self._gear_speed_by_id: Dict[str, float] = {}
-        self._gear_shaft_by_id: Dict[str, int] = {}
-        self._gear_label_by_id: Dict[str, str] = {}
-        self._gear_arms: Dict[str, ArmRenderSpec] = {}
-        self._arm_angles: Dict[str, float] = {}
-        self._gear_angles: Dict[str, float] = {}
+        self._gear_trains: list[GearTrainEntry] = []
+        self._gear_speed_by_id: dict[str, float] = {}
+        self._gear_shaft_by_id: dict[str, int] = {}
+        self._gear_label_by_id: dict[str, str] = {}
+        self._gear_arms: dict[str, ArmRenderSpec] = {}
+        self._arm_angles: dict[str, float] = {}
+        self._gear_angles: dict[str, float] = {}
         self._selected_input_gear_id = "drive"
 
         self.time_overlay = TimeProgressionOverlay(self.gl_widget)
@@ -162,8 +161,8 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(splitter)
         self.setCentralWidget(root)
         self._loading_overlay = self._build_loading_overlay(root)
-        self._kernel_thread: Optional[QThread] = None
-        self._kernel_worker: Optional[KernelLoadWorker] = None
+        self._kernel_thread: QThread | None = None
+        self._kernel_worker: KernelLoadWorker | None = None
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -603,8 +602,8 @@ class MainWindow(QMainWindow):
             speed *= -1.0
         return speed
 
-    def _parse_gear_string(self, gear_string: str) -> List[Tuple[int, int]]:
-        pairs: List[Tuple[int, int]] = []
+    def _parse_gear_string(self, gear_string: str) -> list[tuple[int, int]]:
+        pairs: list[tuple[int, int]] = []
         for token in gear_string.split(","):
             part = token.strip()
             if not part:
@@ -732,7 +731,7 @@ class MainWindow(QMainWindow):
             self.gear_log.setPlainText("")
         self._rebuild_gear_layout()
 
-    def _scaled_planet_mean_distance(self, name: str) -> Optional[float]:
+    def _scaled_planet_mean_distance(self, name: str) -> float | None:
         body = BODY_BY_NAME.get(name)
         if not body or body.mean_distance_km is None:
             return None
@@ -749,7 +748,7 @@ class MainWindow(QMainWindow):
         settings = self._settings.get(name, BodySettings())
         return actual * self.gl_widget.global_distance_scale * settings.distance_scale
 
-    def _scaled_planet_position(self, name: str) -> Optional[np.ndarray]:
+    def _scaled_planet_position(self, name: str) -> np.ndarray | None:
         state = self._positions.get(name)
         if not state or not state.available:
             return None
@@ -777,7 +776,7 @@ class MainWindow(QMainWindow):
             scaled_vec = rot @ scaled_vec
         return scaled_vec
 
-    def _current_planet_angle(self, name: str) -> Optional[float]:
+    def _current_planet_angle(self, name: str) -> float | None:
         pos = self._scaled_planet_position(name)
         if pos is None:
             return None
@@ -812,13 +811,13 @@ class MainWindow(QMainWindow):
         def radius_for(teeth: int) -> float:
             return max(0.5, (float(teeth) * gear_scale) / (2.0 * math.pi))
 
-        gears: Dict[str, GearRenderSpec] = {}
-        speed_by_id: Dict[str, float] = {}
-        shaft_by_id: Dict[str, int] = {}
-        label_by_id: Dict[str, str] = {}
-        train_outputs: Dict[str, str] = {}
-        train_max_y: Dict[str, float] = {}
-        mesh_links: List[Tuple[np.ndarray, np.ndarray]] = []
+        gears: dict[str, GearRenderSpec] = {}
+        speed_by_id: dict[str, float] = {}
+        shaft_by_id: dict[str, int] = {}
+        label_by_id: dict[str, str] = {}
+        train_outputs: dict[str, str] = {}
+        train_max_y: dict[str, float] = {}
+        mesh_links: list[tuple[np.ndarray, np.ndarray]] = []
 
         drive_speed = self._drive_speed_rps()
         drive_id = "drive"
@@ -866,7 +865,7 @@ class MainWindow(QMainWindow):
                 shaft1_x = input_spec.center_mm[0]
                 shaft0_x = shaft1_x - shaft_distance
 
-            speed_shaft: List[Optional[float]] = [None, None]
+            speed_shaft: list[float | None] = [None, None]
             speed_shaft[input_shaft] = input_speed
 
             driver_shaft = input_shaft
@@ -940,7 +939,7 @@ class MainWindow(QMainWindow):
         if self._selected_input_gear_id not in self._gear_label_by_id:
             self._selected_input_gear_id = drive_id
 
-        arms: Dict[str, ArmRenderSpec] = {}
+        arms: dict[str, ArmRenderSpec] = {}
         global_max_y = 0.0
         for gear in gears.values():
             global_max_y = max(global_max_y, gear.center_mm[1] + thickness * 0.5)
@@ -1107,9 +1106,9 @@ class MainWindow(QMainWindow):
         value = dt.toPython()
         if isinstance(value, datetime):
             if value.tzinfo is None:
-                value = value.replace(tzinfo=timezone.utc)
+                value = value.replace(tzinfo=UTC)
             return value
-        return datetime.fromisoformat(dt.toString(Qt.DateFormat.ISODate)).replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(dt.toString(Qt.DateFormat.ISODate)).replace(tzinfo=UTC)
 
     def _focus_selected_body(self, _item=None) -> None:
         item = self.body_list.currentItem()
@@ -1129,7 +1128,7 @@ class MainWindow(QMainWindow):
         if self.orbit_paths_focus_check.isChecked() and self.orbit_paths_check.isChecked():
             self._update_orbit_paths(self._current_datetime(), refresh_orbit_stats=False)
 
-    def _apply_mechanical_settings(self, _value: Optional[int] = None) -> None:
+    def _apply_mechanical_settings(self, _value: int | None = None) -> None:
         enabled = self.mechanical_check.isChecked()
         self.gl_widget.distance_mode = "mechanical" if enabled else "astronomical"
         self.gl_widget.size_mode = "log"
@@ -1302,8 +1301,8 @@ class MainWindow(QMainWindow):
             frame="parent",
         )
 
-        smoothed: Dict[str, np.ndarray] = {}
-        centers: Dict[str, Optional[str]] = {}
+        smoothed: dict[str, np.ndarray] = {}
+        centers: dict[str, str | None] = {}
         for body in bodies:
             points = paths.get(body.name)
             if points is None or points.size == 0:
@@ -1408,7 +1407,7 @@ class MainWindow(QMainWindow):
             if body.parent.upper() == "SUN" and body.name != "Sun"
         ]
 
-    def _apply_focus_system(self, name: Optional[str], update_camera: bool = True) -> None:
+    def _apply_focus_system(self, name: str | None, update_camera: bool = True) -> None:
         if not name:
             self._focused_system = None
         else:
@@ -1441,7 +1440,7 @@ class MainWindow(QMainWindow):
         if update_camera:
             self.gl_widget.update()
 
-    def _system_plane_normal(self, name: str) -> Optional[Tuple[float, float, float]]:
+    def _system_plane_normal(self, name: str) -> tuple[float, float, float] | None:
         info = BODY_BY_NAME.get(name)
         if not info:
             return None
@@ -1460,12 +1459,12 @@ class MainWindow(QMainWindow):
 
     def _mechanical_layout(
         self,
-        positions: Dict[str, "BodyState"],
-    ) -> Tuple[
-        Dict[str, "BodyState"],
-        Dict[str, float],
-        Dict[str, Tuple[float, float, float]],
-        Dict[str, Tuple[Tuple[float, float], ...]],
+        positions: dict[str, BodyState],
+    ) -> tuple[
+        dict[str, BodyState],
+        dict[str, float],
+        dict[str, tuple[float, float, float]],
+        dict[str, tuple[tuple[float, float], ...]],
     ]:
         earth_radius_km = 6371.0
         earth_diameter_mm = self.earth_size_spin.value()
@@ -1480,21 +1479,21 @@ class MainWindow(QMainWindow):
             diameter = max(diameter, self.gl_widget.min_body_diameter_mm)
             return (diameter / 2.0) * scale
 
-        body_radius_mm: Dict[str, float] = {}
+        body_radius_mm: dict[str, float] = {}
         for body in BODY_CATALOG:
             settings = self._settings.get(body.name, BodySettings())
             body_radius_mm[body.name] = size_radius_mm(body.radius_km, settings.radius_scale)
 
-        moons_by_parent: Dict[str, list] = {}
+        moons_by_parent: dict[str, list] = {}
         for body in BODY_CATALOG:
             if body.parent and body.parent.upper() != "SUN":
                 parent_name = body.parent.title()
                 moons_by_parent.setdefault(parent_name, []).append(body)
 
-        moon_scaled_bounds: Dict[str, Tuple[float, float]] = {}
-        moon_bands_by_parent: Dict[str, list] = {}
-        moon_scale_by_parent: Dict[str, float] = {}
-        system_radius: Dict[str, float] = {}
+        moon_scaled_bounds: dict[str, tuple[float, float]] = {}
+        moon_bands_by_parent: dict[str, list] = {}
+        moon_scale_by_parent: dict[str, float] = {}
+        system_radius: dict[str, float] = {}
 
         for parent, moons in moons_by_parent.items():
             parent_radius = body_radius_mm.get(parent, body_radius_mm.get(parent.title(), 1.0))
@@ -1541,7 +1540,7 @@ class MainWindow(QMainWindow):
             system_radius[parent] = max(prev_outer, parent_radius)
 
         planets = [body for body in BODY_CATALOG if body.parent.upper() == "SUN" and body.name != "Sun"]
-        planet_bounds: Dict[str, Tuple[float, float]] = {}
+        planet_bounds: dict[str, tuple[float, float]] = {}
         prev_max_center = 0.0
         prev_system_radius = body_radius_mm.get("Sun", 0.0)
 
@@ -1589,7 +1588,7 @@ class MainWindow(QMainWindow):
             prev_max_center = scaled_max
             prev_system_radius = sys_radius
 
-        scaled_positions: Dict[str, "BodyState"] = {}
+        scaled_positions: dict[str, BodyState] = {}
 
         sun_state = positions.get("Sun")
         if sun_state:
@@ -1666,8 +1665,8 @@ class MainWindow(QMainWindow):
                 continue
             scaled_positions[body.name] = BodyState(state.position_km, state.available, state.error)
 
-        system_bounds_mm: Dict[str, float] = {}
-        orbit_sweeps_mm: Dict[str, Tuple[float, float, float]] = {}
+        system_bounds_mm: dict[str, float] = {}
+        orbit_sweeps_mm: dict[str, tuple[float, float, float]] = {}
         for body in planets:
             sys_radius = system_radius.get(body.name, body_radius_mm.get(body.name, 1.0))
             system_bounds_mm[body.name] = sys_radius
@@ -1681,7 +1680,7 @@ class MainWindow(QMainWindow):
                     thickness = stats.max_normal_km * planet_scale
                 orbit_sweeps_mm[body.name] = (inner, outer, thickness)
 
-        moon_bands_final: Dict[str, Tuple[Tuple[float, float], ...]] = {}
+        moon_bands_final: dict[str, tuple[tuple[float, float], ...]] = {}
         for parent, bands in moon_bands_by_parent.items():
             moon_bands_final[parent] = tuple(bands)
 

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable
-
 
 TEXTURE_ROOT = Path(__file__).resolve().parent / "data" / "textures"
 
-TEXTURE_CANDIDATES: Dict[str, Iterable[str]] = {
+TEXTURE_CANDIDATES: dict[str, Iterable[str]] = {
     "Sun": ("8k/sun.jpg", "2k/sun.jpg"),
     "Mercury": ("8k/mercury.jpg", "2k/mercury.jpg"),
     "Venus": ("8k/venus_surface.jpg", "2k/venus_surface.jpg"),
@@ -45,8 +44,8 @@ TEXTURE_CANDIDATES: Dict[str, Iterable[str]] = {
 }
 
 
-def resolve_texture_paths() -> Dict[str, Path]:
-    resolved: Dict[str, Path] = {}
+def resolve_texture_paths() -> dict[str, Path]:
+    resolved: dict[str, Path] = {}
     for name, candidates in TEXTURE_CANDIDATES.items():
         for candidate in candidates:
             path = TEXTURE_ROOT / candidate

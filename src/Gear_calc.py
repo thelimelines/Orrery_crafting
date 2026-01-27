@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Callable, List, Optional, Tuple, TypedDict
+from typing import Any, TypedDict
 
 np: Any
 njit: Any
@@ -93,7 +94,7 @@ def largest_prime_factor(n: int) -> int:
     return n
 
 
-def _generate_stage_factors(stages: int, minw: int, maxw: int) -> Tuple[List[int], List[int]]:
+def _generate_stage_factors(stages: int, minw: int, maxw: int) -> tuple[list[int], list[int]]:
     # fmin/fmax are 1-indexed in the JS logic; keep slot 0 and 1 = 1.
     fmin = [1, 1]
     fmax = [1, 1]
@@ -107,17 +108,17 @@ def _generate_stage_factors(stages: int, minw: int, maxw: int) -> Tuple[List[int
     return fmin, fmax
 
 
-def _make_packable(minw: int, maxw: int, fmin: List[int], cache_maxsize: Optional[int] = None):
+def _make_packable(minw: int, maxw: int, fmin: list[int], cache_maxsize: int | None = None):
     @lru_cache(maxsize=cache_maxsize)
     def pkbo(n: int, s: int) -> bool:
         if s == 1:
             return minw <= n <= maxw
         # floor root; JS comment notes ceil could miss perfect roots due to roundoff
-        l = max(int(n ** (1.0 / s)), minw)
+        lower = max(int(n ** (1.0 / s)), minw)
         t = min(maxw, n // fmin[s])
         if t % 2 == 0:
             t -= 1
-        while t >= l:
+        while t >= lower:
             if n % t == 0 and pkbo(n // t, s - 1):
                 return True
             t -= 2
@@ -129,11 +130,11 @@ def _make_packable(minw: int, maxw: int, fmin: List[int], cache_maxsize: Optiona
             return pkbo(n, s)
         if s == 1:
             return minw <= n <= maxw
-        l = max(int(n ** (1.0 / s)), minw)
+        lower = max(int(n ** (1.0 / s)), minw)
         t = min(maxw, n // fmin[s]) + 1
         while True:
             t -= 1
-            if t < l:
+            if t < lower:
                 break
             if n % t == 0 and pkb(n // t, s - 1):
                 return True
@@ -143,12 +144,12 @@ def _make_packable(minw: int, maxw: int, fmin: List[int], cache_maxsize: Optiona
 
 
 def _pack_best(
-    n: int, s: int, minw: int, maxw: int, fmin: List[int], fmax: List[int], norm: bool
-) -> Tuple[int, List[int]]:
+    n: int, s: int, minw: int, maxw: int, fmin: list[int], fmax: list[int], norm: bool
+) -> tuple[int, list[int]]:
     # Bin packing optimum / balanced - find gears with smallest wheels.
     best_sum = maxw * s + 1
     wheels = [0] * s
-    best_wheels: List[int] = []
+    best_wheels: list[int] = []
 
     def rec(n_: int, s_: int, su: int) -> None:
         nonlocal best_sum, best_wheels
@@ -159,11 +160,11 @@ def _pack_best(
                 best_wheels = wheels.copy()
             return
         if s_ == 2:
-            l = math.ceil(math.sqrt(n_))
+            lower = math.ceil(math.sqrt(n_))
         else:
-            l = max(math.ceil(n_ / fmax[s_]), minw)
+            lower = max(math.ceil(n_ / fmax[s_]), minw)
         upper = min(n_ // fmin[s_], maxw)
-        for t in range(upper, l - 1, -1):
+        for t in range(upper, lower - 1, -1):
             if n_ % t == 0:
                 wheels[s_ - 1] = t
                 rec(n_ // t, s_ - 1, su + (t if norm else 0))
@@ -182,9 +183,9 @@ def _gear_string(
     pawl: bool,
     tally: bool,
     rc: bool,
-    fmin: List[int],
-    fmax: List[int],
-) -> Tuple[str, int]:
+    fmin: list[int],
+    fmax: list[int],
+) -> tuple[str, int]:
     # Pack the denominator side
     sum_a, wheels_a = _pack_best(savea, stagesp, minw, maxw, fmin, fmax, True)
 
@@ -224,15 +225,15 @@ if NUMBA_AVAILABLE:
     def _pkbo_nb(n, s, minw, maxw, fmin):
         if s == 1:
             return minw <= n <= maxw
-        l = int(n ** (1.0 / s))
-        if l < minw:
-            l = minw
+        lower = int(n ** (1.0 / s))
+        if lower < minw:
+            lower = minw
         t = n // fmin[s]
         if t > maxw:
             t = maxw
         if t % 2 == 0:
             t -= 1
-        while t >= l:
+        while t >= lower:
             if n % t == 0 and _pkbo_nb(n // t, s - 1, minw, maxw, fmin):
                 return True
             t -= 2
@@ -244,16 +245,16 @@ if NUMBA_AVAILABLE:
             return _pkbo_nb(n, s, minw, maxw, fmin)
         if s == 1:
             return minw <= n <= maxw
-        l = int(n ** (1.0 / s))
-        if l < minw:
-            l = minw
+        lower = int(n ** (1.0 / s))
+        if lower < minw:
+            lower = minw
         t = n // fmin[s]
         if t > maxw:
             t = maxw
         t += 1
         while True:
             t -= 1
-            if t < l:
+            if t < lower:
                 break
             if n % t == 0 and _pkb_nb(n // t, s - 1, minw, maxw, fmin):
                 return True
@@ -299,10 +300,10 @@ def compute_compound(
     pawl: bool = False,
     tally: bool = False,
     batch_size: int = 10_000_000,
-    cache_maxsize: Optional[int] = None,
+    cache_maxsize: int | None = None,
     use_numba: bool = True,
     progress_interval: float = 2.5,
-    progress_callback: Optional[Callable[[ProgressState], None]] = None,
+    progress_callback: Callable[[ProgressState], None] | None = None,
 ) -> GearResult:
     """Search compound gear trains.
 
@@ -335,7 +336,7 @@ def compute_compound(
 
     fmin, fmax = _generate_stage_factors(stages, minw, maxw)
     maxc = _js_round((maxw ** stages) / ratio) + 1
-    maxc2 = int((maxw ** stagesp)) + 1
+    maxc2 = int(maxw ** stagesp) + 1
     if maxc2 < maxc:
         maxc = maxc2
     minc = _js_round(minw ** stagesp)
@@ -459,7 +460,7 @@ def compute_reverted(
     minw: int = MINT,
     maxw: int = MAXT,
     progress_interval: float = 2.5,
-    progress_callback: Optional[Callable[[ProgressState], None]] = None,
+    progress_callback: Callable[[ProgressState], None] | None = None,
 ) -> GearResult:
     """Search reverted gear trains (2-stage) with progress output."""
     if ratio <= 0 or not math.isfinite(ratio):
@@ -547,10 +548,10 @@ def compute_gear_train(
     pawl: bool = False,
     tally: bool = False,
     batch_size: int = 10_000_000,
-    cache_maxsize: Optional[int] = None,
+    cache_maxsize: int | None = None,
     use_numba: bool = True,
     progress_interval: float = 2.5,
-    progress_callback: Optional[Callable[[ProgressState], None]] = None,
+    progress_callback: Callable[[ProgressState], None] | None = None,
 ) -> GearResult:
     """Dispatch to compound or reverted based on stages."""
     if stages > 0:

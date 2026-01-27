@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
-from pathlib import Path
 import sys
-from typing import Dict, Iterable, List, Tuple
+from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 
@@ -24,20 +23,20 @@ except ImportError as exc:  # pragma: no cover
     raise SystemExit("matplotlib is required for plotting. Install with: pip install matplotlib") from exc
 
 try:
-    from scipy.interpolate import splprep, splev
+    from scipy.interpolate import splev, splprep
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("scipy is required for spline interpolation. Install with: pip install scipy") from exc
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-def _body_lookup() -> Dict[str, BodyInfo]:
+def _body_lookup() -> dict[str, BodyInfo]:
     return {body.name.lower(): body for body in BODY_CATALOG}
 
 
-def _select_bodies(selection: str) -> List[BodyInfo]:
+def _select_bodies(selection: str) -> list[BodyInfo]:
     selection = selection.strip().lower()
     lookup = _body_lookup()
     if selection in {"planets", "planet"}:
@@ -48,7 +47,7 @@ def _select_bodies(selection: str) -> List[BodyInfo]:
         return [body for body in BODY_CATALOG if body.spice_name.upper() != "SUN"]
 
     names = [name.strip().lower() for name in selection.split(",") if name.strip()]
-    result: List[BodyInfo] = []
+    result: list[BodyInfo] = []
     for name in names:
         body = lookup.get(name)
         if body is None:
@@ -66,7 +65,7 @@ def _sample_positions(
     orbits: int,
     samples_per_orbit: int,
     frame: str,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     import spiceypy as spice_api  # local import after kernels load
 
     period_days = body.orbital_period_days
@@ -76,7 +75,7 @@ def _sample_positions(
     total_samples = max(2, orbits * samples_per_orbit)
     duration = period_days * 86400.0 * max(orbits, 1)
 
-    start_utc = start.astimezone(timezone.utc)
+    start_utc = start.astimezone(UTC)
     et0 = spice_api.utc2et(start_utc.strftime("%Y-%m-%dT%H:%M:%S"))
     times = np.linspace(et0, et0 + duration, total_samples, dtype=float)
 
@@ -114,7 +113,7 @@ def _set_axes_equal(ax) -> None:
     ax.set_zlim3d(centers[2] - radius, centers[2] + radius)
 
 
-def _rgb(color: Tuple[float, float, float]) -> Tuple[float, float, float]:
+def _rgb(color: tuple[float, float, float]) -> tuple[float, float, float]:
     return (float(color[0]), float(color[1]), float(color[2]))
 
 
@@ -139,7 +138,7 @@ def main() -> None:
     else:
         start = datetime.fromisoformat(args.start)
         if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
+            start = start.replace(tzinfo=UTC)
 
     spice = SpiceEphemeris()
     load_result = spice.load_kernels()

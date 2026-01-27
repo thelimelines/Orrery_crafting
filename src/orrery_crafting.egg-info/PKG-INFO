@@ -15,6 +15,19 @@ Requires-Dist: spiceypy>=5.1.2
 # Orrery_crafting
 Tools for developing mechanical planetariums (orreries).
 
+## Install (Windows PowerShell)
+Prerequisite: Python 3.12.x on PATH.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+pip install -e .
+```
+
+This installs the runtime dependencies declared in `pyproject.toml`:
+numba, numpy, PyOpenGL, PySide6, scipy, spiceypy, and pyright.
+
 ## SPICE-powered viewer (PySide6 + OpenGL)
 Run the interactive solar-system viewer:
 

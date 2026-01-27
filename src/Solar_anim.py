@@ -1,12 +1,23 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QTextEdit, QFrame
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPainter, QColor, QBrush
-import sys
-from pathlib import Path
-from scipy.optimize import root_scalar
-import numpy as np
 import csv
+import sys
 from itertools import zip_longest
+from pathlib import Path
+
+import numpy as np
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QPainter
+from PyQt6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+from scipy.optimize import root_scalar
+
 
 def format_number(num):
     if num is None:
@@ -16,7 +27,7 @@ def format_number(num):
     else:
         order_of_magnitude = np.floor(np.log10(np.abs(num)))
         if abs(order_of_magnitude) >= 4:  # Using scientific notation for numbers >= 10,000 or <= 0.0001
-            return "{:.3e}".format(num)
+            return f"{num:.3e}"
         else:
             # Formatting to 3 significant figures
             return "{:,.{precision}g}".format(num, precision=3)
@@ -88,7 +99,7 @@ class Orrery(QWidget):
         self.initUI()
 
     def load_celestial_bodies_from_csv(self, csv_file):
-        with open(csv_file, 'r') as f:
+        with open(csv_file) as f:
             reader = csv.reader(f)
             headers = next(reader)  # Skip the header row
             for row in reader:

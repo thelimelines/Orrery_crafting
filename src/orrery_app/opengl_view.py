@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from OpenGL.GL import (
@@ -10,22 +10,29 @@ from OpenGL.GL import (
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_TEST,
     GL_FALSE,
+    GL_FLOAT,
     GL_LEQUAL,
-    GL_LINE_SMOOTH,
     GL_LINE_LOOP,
+    GL_LINE_SMOOTH,
     GL_LINE_STRIP,
+    GL_LINEAR,
+    GL_LINEAR_MIPMAP_LINEAR,
     GL_LINES,
+    GL_MAX_TEXTURE_SIZE,
     GL_MODELVIEW,
     GL_ONE_MINUS_SRC_ALPHA,
     GL_PROJECTION,
+    GL_REPEAT,
+    GL_RGBA,
     GL_SRC_ALPHA,
     GL_TEXTURE_2D,
     GL_TEXTURE_MAG_FILTER,
     GL_TEXTURE_MIN_FILTER,
     GL_TEXTURE_WRAP_S,
     GL_TEXTURE_WRAP_T,
-    GL_UNPACK_ALIGNMENT,
     GL_TRIANGLE_STRIP,
+    GL_TRUE,
+    GL_UNPACK_ALIGNMENT,
     GL_UNSIGNED_BYTE,
     GL_VERTEX_ARRAY,
     glBegin,
@@ -39,34 +46,27 @@ from OpenGL.GL import (
     glDepthMask,
     glDisable,
     glDisableClientState,
+    glDrawArrays,
     glEnable,
     glEnableClientState,
     glEnd,
     glGenerateMipmap,
-    glDrawArrays,
     glGenTextures,
     glGetIntegerv,
     glLineWidth,
     glLoadMatrixf,
     glMatrixMode,
     glMultMatrixf,
+    glPixelStorei,
     glPopMatrix,
     glPushMatrix,
     glRotatef,
-    glPixelStorei,
-    glTranslatef,
     glTexImage2D,
     glTexParameteri,
+    glTranslatef,
     glVertex3f,
     glVertexPointer,
     glViewport,
-    GL_FLOAT,
-    GL_LINEAR,
-    GL_LINEAR_MIPMAP_LINEAR,
-    GL_MAX_TEXTURE_SIZE,
-    GL_REPEAT,
-    GL_RGBA,
-    GL_TRUE,
 )
 from OpenGL.GLU import gluCylinder, gluDisk, gluNewQuadric, gluQuadricTexture, gluSphere
 from PySide6.QtCore import QPoint, Qt, Signal
@@ -128,11 +128,11 @@ class OrreryGLWidget(QOpenGLWidget):
         super().__init__(parent)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
-        self._positions: Dict[str, BodyState] = {}
-        self._settings: Dict[str, BodySettings] = {}
-        self._screen_positions: Dict[str, Tuple[float, float, float]] = {}
-        self._body_rotations: Dict[str, np.ndarray] = {}
-        self._body_spin_dirs: Dict[str, float] = {}
+        self._positions: dict[str, BodyState] = {}
+        self._settings: dict[str, BodySettings] = {}
+        self._screen_positions: dict[str, tuple[float, float, float]] = {}
+        self._body_rotations: dict[str, np.ndarray] = {}
+        self._body_spin_dirs: dict[str, float] = {}
 
         self._yaw = 0.0
         self._pitch = 60.0
@@ -158,48 +158,48 @@ class OrreryGLWidget(QOpenGLWidget):
         self.ecliptic_tilt_deg = 23.43928
         self._zoom_min = 10.0
         self._zoom_max = 2000.0
-        self._orbit_normal: Optional[np.ndarray] = None
+        self._orbit_normal: np.ndarray | None = None
         self._positions_scaled = False
 
         self._max_distance_km = 0.0
         self._quadric = None
-        self._scaled_positions: Dict[str, np.ndarray] = {}
-        self._system_bounds: Dict[str, float] = {}
-        self._orbit_sweeps: Dict[str, Tuple[float, float, float]] = {}
-        self._moon_orbit_bands: Dict[str, Tuple[Tuple[float, float], ...]] = {}
-        self._moon_orbit_center: Optional[str] = None
+        self._scaled_positions: dict[str, np.ndarray] = {}
+        self._system_bounds: dict[str, float] = {}
+        self._orbit_sweeps: dict[str, tuple[float, float, float]] = {}
+        self._moon_orbit_bands: dict[str, tuple[tuple[float, float], ...]] = {}
+        self._moon_orbit_center: str | None = None
         self.show_moon_bands = False
         self.orbit_band_opacity = 0.035
         self.show_orbit_paths = False
-        self._orbit_paths: Dict[str, np.ndarray] = {}
+        self._orbit_paths: dict[str, np.ndarray] = {}
         self._orbit_paths_scaled = False
-        self._orbit_path_centers: Dict[str, Optional[str]] = {}
-        self._texture_ids: Dict[str, int] = {}
+        self._orbit_path_centers: dict[str, str | None] = {}
+        self._texture_ids: dict[str, int] = {}
         self._texture_paths = {}
         self._textures_loaded = False
         self.real_scale_mode = False
-        self._gears: Dict[str, GearRenderSpec] = {}
-        self._gear_screen_positions: Dict[str, Tuple[float, float, float]] = {}
-        self._gear_screen_radii: Dict[str, float] = {}
-        self._gear_angles: Dict[str, float] = {}
-        self._mesh_links: Tuple[Tuple[np.ndarray, np.ndarray], ...] = ()
-        self._arms: Dict[str, ArmRenderSpec] = {}
+        self._gears: dict[str, GearRenderSpec] = {}
+        self._gear_screen_positions: dict[str, tuple[float, float, float]] = {}
+        self._gear_screen_radii: dict[str, float] = {}
+        self._gear_angles: dict[str, float] = {}
+        self._mesh_links: tuple[tuple[np.ndarray, np.ndarray], ...] = ()
+        self._arms: dict[str, ArmRenderSpec] = {}
         self._mouse_press_pos = QPoint()
         self._dragging = False
 
-    def set_body_settings(self, settings: Dict[str, BodySettings]) -> None:
+    def set_body_settings(self, settings: dict[str, BodySettings]) -> None:
         self._settings = settings
         self.update()
 
-    def set_body_rotations(self, rotations: Dict[str, np.ndarray]) -> None:
+    def set_body_rotations(self, rotations: dict[str, np.ndarray]) -> None:
         self._body_rotations = rotations
         self.update()
 
-    def set_body_spin_directions(self, spin_dirs: Dict[str, float]) -> None:
+    def set_body_spin_directions(self, spin_dirs: dict[str, float]) -> None:
         self._body_spin_dirs = spin_dirs
         self.update()
 
-    def update_positions(self, positions: Dict[str, BodyState], already_scaled: bool = False) -> None:
+    def update_positions(self, positions: dict[str, BodyState], already_scaled: bool = False) -> None:
         self._positions = positions
         self._positions_scaled = already_scaled
         self._max_distance_km = self._compute_max_distance()
@@ -207,8 +207,8 @@ class OrreryGLWidget(QOpenGLWidget):
 
     def set_system_bounds(
         self,
-        system_bounds: Dict[str, float],
-        orbit_sweeps: Dict[str, Tuple[float, float, float]],
+        system_bounds: dict[str, float],
+        orbit_sweeps: dict[str, tuple[float, float, float]],
     ) -> None:
         self._system_bounds = system_bounds
         self._orbit_sweeps = orbit_sweeps
@@ -216,8 +216,8 @@ class OrreryGLWidget(QOpenGLWidget):
 
     def set_moon_bands(
         self,
-        center_name: Optional[str],
-        bands: Dict[str, Tuple[Tuple[float, float], ...]],
+        center_name: str | None,
+        bands: dict[str, tuple[tuple[float, float], ...]],
     ) -> None:
         self._moon_orbit_center = center_name
         self._moon_orbit_bands = bands
@@ -225,9 +225,9 @@ class OrreryGLWidget(QOpenGLWidget):
 
     def set_orbit_paths(
         self,
-        paths: Dict[str, np.ndarray],
+        paths: dict[str, np.ndarray],
         *,
-        centers: Optional[Dict[str, Optional[str]]] = None,
+        centers: dict[str, str | None] | None = None,
         already_scaled: bool = False,
     ) -> None:
         self._orbit_paths = paths
@@ -235,7 +235,7 @@ class OrreryGLWidget(QOpenGLWidget):
         self._orbit_path_centers = centers or {}
         self.update()
 
-    def set_orbital_plane_normal(self, normal: Optional[Tuple[float, float, float]]) -> None:
+    def set_orbital_plane_normal(self, normal: tuple[float, float, float] | None) -> None:
         if normal is None:
             self._orbit_normal = None
         else:
@@ -247,19 +247,19 @@ class OrreryGLWidget(QOpenGLWidget):
     def orbital_plane_rotation_matrix(self) -> np.ndarray:
         return self._orbital_plane_rotation()
 
-    def set_gears(self, gears: Dict[str, GearRenderSpec]) -> None:
+    def set_gears(self, gears: dict[str, GearRenderSpec]) -> None:
         self._gears = gears
         self.update()
 
-    def set_arms(self, arms: Dict[str, ArmRenderSpec]) -> None:
+    def set_arms(self, arms: dict[str, ArmRenderSpec]) -> None:
         self._arms = arms
         self.update()
 
-    def set_gear_angles(self, angles: Dict[str, float]) -> None:
+    def set_gear_angles(self, angles: dict[str, float]) -> None:
         self._gear_angles = angles
         self.update()
 
-    def set_mesh_links(self, links: Tuple[Tuple[np.ndarray, np.ndarray], ...]) -> None:
+    def set_mesh_links(self, links: tuple[tuple[np.ndarray, np.ndarray], ...]) -> None:
         self._mesh_links = links
         self.update()
 
@@ -310,14 +310,14 @@ class OrreryGLWidget(QOpenGLWidget):
         for name, path in self._texture_paths.items():
             try:
                 tex_id = self._create_texture(path)
-            except Exception as exc:  # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 continue
             if tex_id is not None:
                 self._texture_ids[name] = tex_id
         if self._texture_ids:
             self.update()
 
-    def _create_texture(self, path) -> Optional[int]:
+    def _create_texture(self, path) -> int | None:
         image = QImage(str(path))
         if image.isNull():
             return None
@@ -343,14 +343,12 @@ class OrreryGLWidget(QOpenGLWidget):
                 )
 
         image = image.mirrored()
-        buf = image.bits()
-        try:
+        buf: Any = image.bits()
+        if hasattr(buf, "setsize"):
             buf.setsize(image.sizeInBytes())
-        except AttributeError:
-            pass
-        try:
+        if hasattr(buf, "tobytes"):
             data = buf.tobytes()
-        except AttributeError:
+        else:
             data = bytes(buf)
 
         tex_id = glGenTextures(1)
@@ -710,7 +708,7 @@ class OrreryGLWidget(QOpenGLWidget):
         point: np.ndarray,
         view: np.ndarray,
         proj: np.ndarray,
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         clip = proj @ view @ np.array([point[0], point[1], point[2], 1.0], dtype=np.float32)
         if clip[3] == 0:
             return (0.0, 0.0, 1.0)
@@ -719,7 +717,7 @@ class OrreryGLWidget(QOpenGLWidget):
         y = (1.0 - (ndc[1] * 0.5 + 0.5)) * self.height()
         return (float(x), float(y), float(ndc[2]))
 
-    def _pick_body(self, pos: QPoint) -> Optional[str]:
+    def _pick_body(self, pos: QPoint) -> str | None:
         closest_name = None
         closest_dist = 1.0e9
         for name, (x, y, _z) in self._screen_positions.items():
@@ -731,7 +729,7 @@ class OrreryGLWidget(QOpenGLWidget):
                 closest_name = name
         return closest_name
 
-    def _pick_gear(self, pos: QPoint) -> Optional[str]:
+    def _pick_gear(self, pos: QPoint) -> str | None:
         closest_id = None
         closest_dist = 1.0e9
         for gear_id, (x, y, _z) in self._gear_screen_positions.items():
@@ -831,7 +829,7 @@ class OrreryGLWidget(QOpenGLWidget):
         fov_deg: float,
         camera_distance: float,
         distance_scale: float,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         scene_radius = 0.0
         for name, pos in self._scaled_positions.items():
             radius = 0.0
@@ -996,7 +994,7 @@ class OrreryGLWidget(QOpenGLWidget):
         radius: float,
         view: np.ndarray,
         proj: np.ndarray,
-        center_screen: Tuple[float, float, float],
+        center_screen: tuple[float, float, float],
     ) -> float:
         edge_world = center + np.array([radius, 0.0, 0.0], dtype=np.float32)
         edge_screen = self._project_point(edge_world, view, proj)

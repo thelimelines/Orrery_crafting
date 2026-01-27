@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
 
-
-Color = Tuple[float, float, float]
+Color = tuple[float, float, float]
 
 
 @dataclass
@@ -13,7 +11,7 @@ class GearRenderSpec:
     teeth: int
     radius_mm: float
     thickness_mm: float
-    center_mm: Tuple[float, float, float]
+    center_mm: tuple[float, float, float]
     color: Color
     label: str
     shaft_index: int
@@ -27,7 +25,7 @@ class ArmRenderSpec:
     arm_id: str
     length_mm: float
     angle_rad: float
-    origin_mm: Tuple[float, float, float]
+    origin_mm: tuple[float, float, float]
     tube_base_y_mm: float
     speed_rps: float
     color: Color

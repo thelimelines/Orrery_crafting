@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 
@@ -18,24 +18,24 @@ except ImportError:  # pragma: no cover - optional dependency until installed
 @dataclass
 class KernelLoadResult:
     loaded: bool
-    kernels: List[Path]
-    errors: List[str]
+    kernels: list[Path]
+    errors: list[str]
 
 
 def _default_kernel_dir() -> Path:
     return Path(__file__).resolve().parent / "data" / "kernels"
 
 
-def _vec3_tuple(values: Iterable[float]) -> Tuple[float, float, float]:
+def _vec3_tuple(values: Iterable[float]) -> tuple[float, float, float]:
     arr = np.asarray(tuple(values), dtype=float)
     return (float(arr[0]), float(arr[1]), float(arr[2]))
 
 
 class SpiceEphemeris:
-    def __init__(self, kernel_dir: Optional[Path] = None) -> None:
+    def __init__(self, kernel_dir: Path | None = None) -> None:
         self.kernel_dir = kernel_dir or _default_kernel_dir()
-        self._kernels_loaded: List[Path] = []
-        self._load_errors: List[str] = []
+        self._kernels_loaded: list[Path] = []
+        self._load_errors: list[str] = []
         self._loaded = False
 
     @property
@@ -55,10 +55,10 @@ class SpiceEphemeris:
         return f"{len(self._kernels_loaded)} kernels loaded"
 
     @property
-    def load_errors(self) -> List[str]:
+    def load_errors(self) -> list[str]:
         return list(self._load_errors)
 
-    def load_kernels(self, kernel_dir: Optional[Path] = None) -> KernelLoadResult:
+    def load_kernels(self, kernel_dir: Path | None = None) -> KernelLoadResult:
         spice_mod = spice
         if spice_mod is None:
             return KernelLoadResult(False, [], ["spiceypy not installed"])
@@ -90,19 +90,19 @@ class SpiceEphemeris:
         self._loaded = len(self._kernels_loaded) > 0
         return KernelLoadResult(self._loaded, list(self._kernels_loaded), list(self._load_errors))
 
-    def get_positions(self, when: datetime) -> Dict[str, BodyState]:
+    def get_positions(self, when: datetime) -> dict[str, BodyState]:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return self._approximate_positions(when, reason="kernels unavailable")
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception as exc:
             return self._approximate_positions(when, reason=str(exc))
 
-        positions: Dict[str, BodyState] = {}
-        parent_positions: Dict[str, np.ndarray] = {}
+        positions: dict[str, BodyState] = {}
+        parent_positions: dict[str, np.ndarray] = {}
 
         for body in BODY_CATALOG:
             pos = self._position_for_body(body, et, parent_positions)
@@ -110,18 +110,18 @@ class SpiceEphemeris:
 
         return positions
 
-    def get_body_rotations(self, when: datetime) -> Dict[str, np.ndarray]:
+    def get_body_rotations(self, when: datetime) -> dict[str, np.ndarray]:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return {}
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception:
             return {}
 
-        rotations: Dict[str, np.ndarray] = {}
+        rotations: dict[str, np.ndarray] = {}
         for body in BODY_CATALOG:
             frame = f"IAU_{body.spice_name.upper()}"
             try:
@@ -136,7 +136,7 @@ class SpiceEphemeris:
         self,
         when: datetime,
         dt_seconds: float = 60.0,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return {}
@@ -144,12 +144,12 @@ class SpiceEphemeris:
             dt_seconds = 60.0
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et0 = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception:
             return {}
 
-        rotations: Dict[str, float] = {}
+        rotations: dict[str, float] = {}
         et1 = et0 + dt_seconds
         for body in BODY_CATALOG:
             frame = f"IAU_{body.spice_name.upper()}"
@@ -178,13 +178,13 @@ class SpiceEphemeris:
         when: datetime,
         body: str = "EARTH",
         center: str = "SUN",
-    ) -> Optional[Tuple[float, float, float]]:
+    ) -> tuple[float, float, float] | None:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return None
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception:
             return None
@@ -209,19 +209,19 @@ class SpiceEphemeris:
         bodies: Iterable[BodyInfo],
         samples: int = 180,
         span_orbits: int = 100,
-        plane_normal: Optional[Tuple[float, float, float]] = None,
-    ) -> Dict[str, OrbitStats]:
+        plane_normal: tuple[float, float, float] | None = None,
+    ) -> dict[str, OrbitStats]:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return {}
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et0 = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception:
             return {}
 
-        results: Dict[str, OrbitStats] = {}
+        results: dict[str, OrbitStats] = {}
         normal_vec = None
         if plane_normal is not None:
             normal_vec = np.array(plane_normal, dtype=float)
@@ -285,18 +285,18 @@ class SpiceEphemeris:
         samples_per_orbit: int = 180,
         span_orbits: int = 10,
         frame: str = "heliocentric",
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         spice_mod = spice
         if spice_mod is None or not self._loaded:
             return {}
 
         try:
-            when_utc = when.astimezone(timezone.utc)
+            when_utc = when.astimezone(UTC)
             et0 = spice_mod.utc2et(when_utc.strftime("%Y-%m-%dT%H:%M:%S"))
         except Exception:
             return {}
 
-        results: Dict[str, np.ndarray] = {}
+        results: dict[str, np.ndarray] = {}
         for body in bodies:
             if body.spice_name.upper() == "SUN":
                 continue
@@ -309,7 +309,7 @@ class SpiceEphemeris:
             total_samples = max(2, int(samples_per_orbit) * orbit_count)
             duration = period_days * 86400.0 * orbit_count
             times = np.linspace(et0, et0 + duration, total_samples, dtype=float)
-            positions: List[np.ndarray] = []
+            positions: list[np.ndarray] = []
             for et in times:
                 try:
                     pos, _ = spice_mod.spkpos(body.spice_name, float(et), "J2000", "NONE", center)
@@ -326,7 +326,7 @@ class SpiceEphemeris:
         self,
         body: BodyInfo,
         et: float,
-        parent_positions: Dict[str, np.ndarray],
+        parent_positions: dict[str, np.ndarray],
     ) -> BodyState:
         spice_mod = spice
         if spice_mod is None:
@@ -349,12 +349,12 @@ class SpiceEphemeris:
         except Exception as exc:
             return BodyState((0.0, 0.0, 0.0), False, str(exc))
 
-    def _approximate_positions(self, when: datetime, reason: str) -> Dict[str, BodyState]:
+    def _approximate_positions(self, when: datetime, reason: str) -> dict[str, BodyState]:
         if when.tzinfo is None:
-            when = when.replace(tzinfo=timezone.utc)
+            when = when.replace(tzinfo=UTC)
         seconds = when.timestamp()
 
-        positions: Dict[str, BodyState] = {}
+        positions: dict[str, BodyState] = {}
         for body in BODY_CATALOG:
             if body.spice_name.upper() == "SUN":
                 positions[body.name] = BodyState((0.0, 0.0, 0.0), True)
@@ -363,7 +363,7 @@ class SpiceEphemeris:
             positions[body.name] = BodyState(position, False, reason)
         return positions
 
-    def _approximate_orbit(self, body: BodyInfo, seconds: float) -> Tuple[float, float, float]:
+    def _approximate_orbit(self, body: BodyInfo, seconds: float) -> tuple[float, float, float]:
         if body.mean_distance_km is None or body.orbital_period_days is None:
             return (0.0, 0.0, 0.0)
         period_seconds = body.orbital_period_days * 86400.0

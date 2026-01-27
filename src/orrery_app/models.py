@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
 
-
-Color = Tuple[float, float, float]
+Color = tuple[float, float, float]
 
 
 @dataclass(frozen=True)
@@ -14,8 +13,8 @@ class BodyInfo:
     parent: str
     color: Color
     radius_km: float
-    mean_distance_km: Optional[float] = None
-    orbital_period_days: Optional[float] = None
+    mean_distance_km: float | None = None
+    orbital_period_days: float | None = None
 
 
 @dataclass
@@ -26,9 +25,9 @@ class BodySettings:
 
 @dataclass
 class BodyState:
-    position_km: Tuple[float, float, float]
+    position_km: tuple[float, float, float]
     available: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -38,7 +37,7 @@ class OrbitStats:
     max_normal_km: float = 0.0
 
 
-BODY_CATALOG: Tuple[BodyInfo, ...] = (
+BODY_CATALOG: tuple[BodyInfo, ...] = (
     BodyInfo(
         name="Sun",
         spice_name="SUN",
@@ -357,7 +356,7 @@ BODY_CATALOG: Tuple[BodyInfo, ...] = (
 )
 
 
-BODY_BY_NAME: Dict[str, BodyInfo] = {body.name: body for body in BODY_CATALOG}
+BODY_BY_NAME: dict[str, BodyInfo] = {body.name: body for body in BODY_CATALOG}
 
 
 def iter_body_names() -> Iterable[str]:
