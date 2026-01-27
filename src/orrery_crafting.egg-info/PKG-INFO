@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: orrery-crafting
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: <3.13,>=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: numba
+Requires-Dist: numpy<2.0,>=1.26
+Requires-Dist: pyside6>=6.6.0
+Requires-Dist: PyOpenGL>=3.1.7
+Requires-Dist: pyright>=1.1.408
+Requires-Dist: scipy>=1.17.0
+Requires-Dist: spiceypy>=5.1.2
+
+# Orrery_crafting
+Tools for developing mechanical planetariums (orreries).
+
+## SPICE-powered viewer (PySide6 + OpenGL)
+Run the interactive solar-system viewer:
+
+```bash
+pip install -e .
+python -m orrery_app
+```
+
+### SPICE kernels
+Place kernels under `src/orrery_app/data/kernels` (or point the UI to another folder). At minimum:
+- leap seconds (`.tls`)
+- planetary constants (`.tpc`)
+- an SPK ephemeris (example: JPL DE441) for planets and dwarf planets
+
+Moons require additional satellite SPK kernels beyond the planetary ephemeris.
+
+### Textures & attribution
+Textures live under `src/orrery_app/data/textures`. Download them with:
+
+```powershell
+./scripts/download_textures.ps1
+```
+
+The viewer will use the highest-resolution texture it finds for each body and fall back to lower-resolution maps (including 2k versions for dithering).
+The 21600×10800 Earth base map is included as a source asset but is not loaded at runtime.
+
+Sources and credits:
+- Solar System Scope textures for the Sun and planetary base maps (plus Earth clouds and dwarf planet artist maps). License: CC BY 4.0. Source and license: https://www.solarsystemscope.com/textures/ and https://creativecommons.org/licenses/by/4.0/
+- NASA Earth Observatory / Blue Marble Next Generation base map (January 2004) stored as `src/orrery_app/data/textures/hires/earth_21600.jpg`. Source: https://science.nasa.gov/resource/blue-marble-next-generation/ (NASA imagery is generally public domain; do not imply NASA endorsement)
+- NASA/JPL Solar System Simulator texture maps for moons and Pluto/Charon (Voyager mosaics and composites). Source: https://maps.jpl.nasa.gov/tmaps/
+
+Notes on realism:
+- Venus surface uses Magellan radar-based imagery (not true color).
+- Gas/ice giant maps are representative composites; Neptune in particular is not true-color ground truth.
+- Pluto/Charon and Titan maps from JPL are marked “fictitious.”
+- Dwarf planet maps from Solar System Scope are artistic impressions where no global imaging exists.

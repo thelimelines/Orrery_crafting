@@ -1,0 +1,2 @@
+[console_scripts]
+orrery = orrery_app.app:main

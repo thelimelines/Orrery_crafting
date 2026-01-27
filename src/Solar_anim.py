@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPainter, QColor, QBrush
 import sys
+from pathlib import Path
 from scipy.optimize import root_scalar
 import numpy as np
 import csv
@@ -21,7 +22,20 @@ def format_number(num):
             return "{:,.{precision}g}".format(num, precision=3)
 
 class CelestialBody:
-    def __init__(self, body_name, parent, a, e, T, color, sidereal_rotation_period=None, radius=None, mass=None, inclination=None, axial_tilt=None):
+    def __init__(
+        self,
+        body_name: str,
+        parent: "CelestialBody | None",
+        a: float,
+        e: float,
+        T: float,
+        color: QColor,
+        sidereal_rotation_period: float | None = None,
+        radius: float | None = None,
+        mass: float | None = None,
+        inclination: float | None = None,
+        axial_tilt: float | None = None,
+    ):
         self.body_name = body_name
         self.parent = parent
         self.a = a
@@ -64,7 +78,8 @@ class Orrery(QWidget):
 
         self.bodies = []
         self.bodies_by_name = {}
-        self.load_celestial_bodies_from_csv("Organised_sourced_orrery_data.csv")
+        csv_path = Path(__file__).with_name("Organised_sourced_orrery_data.csv")
+        self.load_celestial_bodies_from_csv(csv_path)
 
         # Calculate max distance for dynamic scaling
         self.max_distance = max([body.a * (1 + body.e) for body in self.bodies])
@@ -97,13 +112,34 @@ class Orrery(QWidget):
                     
                     # Check for parent
                     parent = self.bodies_by_name.get(parent_name) if parent_name and parent_name != 'None' else None
-                    
+
+                    if body_name is None:
+                        print("Skipping row due to missing body name.")
+                        continue
+
                     # Check for essential attributes for rendering
-                    if None in [a, e, T, r, g, b]:
+                    if a is None or e is None or T is None or r is None or g is None or b is None:
                         print(f"Skipping {body_name} due to missing essential data.")
                         continue
 
-                    body = CelestialBody(body_name,parent, a, e, T, QColor(r, g, b), sidereal_rotation_period, radius, mass, inclination)
+                    a_f = float(a)
+                    e_f = float(e)
+                    T_f = float(T)
+                    r_i = int(r)
+                    g_i = int(g)
+                    b_i = int(b)
+                    body = CelestialBody(
+                        body_name,
+                        parent,
+                        a_f,
+                        e_f,
+                        T_f,
+                        QColor(r_i, g_i, b_i),
+                        sidereal_rotation_period,
+                        radius,
+                        mass,
+                        inclination,
+                    )
                     # Check if grandparent is the "Sun" and modify 'a' accordingly
                     if parent and parent.parent and parent.parent.body_name == "Sun":
                         body.a *= 50
@@ -177,11 +213,13 @@ class Orrery(QWidget):
         self.paused = not self.paused
         self.pause_button.setText('Resume' if self.paused else 'Pause')
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, a0):
         self.updateTimeStep()  # Clear trails on window resize
     
-    def mousePressEvent(self, event):
-        click_x, click_y = event.position().x(), event.position().y()
+    def mousePressEvent(self, a0):
+        if a0 is None:
+            return
+        click_x, click_y = a0.position().x(), a0.position().y()
         found = False
         for body in self.bodies:
             x, y = body.position(self.time)
@@ -233,7 +271,7 @@ class Orrery(QWidget):
 
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0):
         qp = QPainter(self)
         qp.setPen(Qt.PenStyle.NoPen)  # This line ensures no outline is drawn
         for body in self.bodies:
