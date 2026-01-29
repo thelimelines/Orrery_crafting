@@ -41,6 +41,7 @@ TEXTURE_CANDIDATES: dict[str, Iterable[str]] = {
     "Eris": ("4k/eris.jpg", "2k/eris.jpg"),
     "Haumea": ("4k/haumea.jpg", "2k/haumea.jpg"),
     "Makemake": ("4k/makemake.jpg", "2k/makemake.jpg"),
+    "SaturnRings": ("extras/saturn_rings.png",),
 }
 
 

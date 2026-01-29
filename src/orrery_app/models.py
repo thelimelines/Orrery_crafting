@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 Color = tuple[float, float, float]
 
+SATURN_RING_INNER_KM = 66900.0
+SATURN_RING_OUTER_KM = 173200.0
+
 
 @dataclass(frozen=True)
 class BodyInfo:

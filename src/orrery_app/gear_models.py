@@ -16,6 +16,7 @@ class GearRenderSpec:
     label: str
     shaft_index: int
     speed_rps: float
+    bore_radius_mm: float = 0.0
     angle_rad: float = 0.0
     is_drive: bool = False
 

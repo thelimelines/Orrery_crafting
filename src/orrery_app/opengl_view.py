@@ -63,6 +63,7 @@ from OpenGL.GL import (
     glRotatef,
     glTexImage2D,
     glTexParameteri,
+    glTexCoord2f,
     glTranslatef,
     glVertex3f,
     glVertexPointer,
@@ -74,7 +75,7 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 from .gear_models import ArmRenderSpec, GearRenderSpec
-from .models import BODY_BY_NAME, BodySettings, BodyState
+from .models import BODY_BY_NAME, SATURN_RING_INNER_KM, SATURN_RING_OUTER_KM, BodySettings, BodyState
 from .textures import resolve_texture_paths
 
 
@@ -183,6 +184,7 @@ class OrreryGLWidget(QOpenGLWidget):
         self._gear_screen_radii: dict[str, float] = {}
         self._gear_angles: dict[str, float] = {}
         self._mesh_links: tuple[tuple[np.ndarray, np.ndarray], ...] = ()
+        self._shaft_links: tuple[tuple[np.ndarray, np.ndarray], ...] = ()
         self._arms: dict[str, ArmRenderSpec] = {}
         self._mouse_press_pos = QPoint()
         self._dragging = False
@@ -261,6 +263,10 @@ class OrreryGLWidget(QOpenGLWidget):
 
     def set_mesh_links(self, links: tuple[tuple[np.ndarray, np.ndarray], ...]) -> None:
         self._mesh_links = links
+        self.update()
+
+    def set_shaft_links(self, links: tuple[tuple[np.ndarray, np.ndarray], ...]) -> None:
+        self._shaft_links = links
         self.update()
 
     def focus_on_body(self, name: str) -> None:
@@ -492,6 +498,9 @@ class OrreryGLWidget(QOpenGLWidget):
             else:
                 self._draw_rotation_guides(draw_radius, spin_dir, draw_guides=show_guides)
 
+            if name == "Saturn":
+                self._draw_saturn_rings(radius)
+
             threshold = self._earth_unit_radius() * self.highlight_threshold_earth_units
             if radius < threshold:
                 self._draw_bounding_box(max(threshold * 2.0, self.min_visible_radius * 2.0))
@@ -508,7 +517,7 @@ class OrreryGLWidget(QOpenGLWidget):
                 glRotatef(angle_deg, 0.0, 1.0, 0.0)
                 alpha = 0.85 if gear.is_drive else 0.55
                 glColor4f(float(gear.color[0]), float(gear.color[1]), float(gear.color[2]), alpha)
-                self._draw_gear_cylinder(gear.radius_mm, gear.thickness_mm)
+                self._draw_gear_cylinder(gear.radius_mm, gear.thickness_mm, gear.bore_radius_mm)
                 glPopMatrix()
 
                 center_screen = self._project_point(center, view, proj)
@@ -547,6 +556,16 @@ class OrreryGLWidget(QOpenGLWidget):
             glColor3f(0.2, 0.55, 0.95)
             glBegin(GL_LINES)
             for a, b in self._mesh_links:
+                glVertex3f(float(a[0]), float(a[1]), float(a[2]))
+                glVertex3f(float(b[0]), float(b[1]), float(b[2]))
+            glEnd()
+
+        if self._shaft_links:
+            glDisable(GL_BLEND)
+            glLineWidth(1.2)
+            glColor3f(0.6, 0.6, 0.68)
+            glBegin(GL_LINES)
+            for a, b in self._shaft_links:
                 glVertex3f(float(a[0]), float(a[1]), float(a[2]))
                 glVertex3f(float(b[0]), float(b[1]), float(b[2]))
             glEnd()
@@ -658,6 +677,13 @@ class OrreryGLWidget(QOpenGLWidget):
             if not self._dragging and (event.pos() - self._mouse_press_pos).manhattanLength() > 3:
                 self._dragging = True
             self.update()
+        elif event.buttons() & Qt.MouseButton.RightButton:
+            delta = event.pos() - self._last_pos
+            self._pan_target(delta)
+            self._last_pos = event.pos()
+            if not self._dragging and (event.pos() - self._mouse_press_pos).manhattanLength() > 3:
+                self._dragging = True
+            self.update()
 
     def wheelEvent(self, event) -> None:
         delta = event.angleDelta().y() / 120.0
@@ -685,6 +711,29 @@ class OrreryGLWidget(QOpenGLWidget):
         if self.distance_mode == "mechanical":
             return 1.0
         return self.global_distance_scale
+
+    def _pan_target(self, delta: QPoint) -> None:
+        if self.width() <= 0 or self.height() <= 0:
+            return
+        fov_deg = 45.0
+        distance = float(np.linalg.norm(self._camera_eye() - self._target))
+        if distance <= 0.0:
+            return
+        world_per_pixel = 2.0 * distance * math.tan(math.radians(fov_deg) / 2.0) / self.height()
+        forward = self._target - self._camera_eye()
+        forward_norm = np.linalg.norm(forward)
+        if forward_norm == 0:
+            forward_norm = 1.0
+        forward = forward / forward_norm
+        up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+        right = np.cross(forward, up)
+        right_norm = np.linalg.norm(right)
+        if right_norm == 0:
+            right_norm = 1.0
+        right = right / right_norm
+        true_up = np.cross(right, forward)
+        move = (-delta.x() * right + delta.y() * true_up) * world_per_pixel
+        self._target = self._target + move.astype(np.float32)
 
     def _compute_max_distance(self) -> float:
         distances = []
@@ -788,24 +837,77 @@ class OrreryGLWidget(QOpenGLWidget):
         glVertex3f(-half, half, half)
         glEnd()
 
-    def _draw_gear_cylinder(self, radius: float, height: float) -> None:
+    def _draw_gear_cylinder(self, radius: float, height: float, bore_radius: float = 0.0) -> None:
         if self._quadric is None:
             return
         h = max(float(height), 0.01)
         r = max(float(radius), 0.01)
+        bore = max(0.0, float(bore_radius))
+        if bore >= r - 0.05:
+            bore = max(0.0, r - 0.05)
         glPushMatrix()
         glRotatef(-90.0, 1.0, 0.0, 0.0)
         glTranslatef(0.0, 0.0, -h * 0.5)
-        gluCylinder(self._quadric, r, r, h, 24, 1)
-        gluDisk(self._quadric, 0.0, r, 24, 1)
-        glTranslatef(0.0, 0.0, h)
-        gluDisk(self._quadric, 0.0, r, 24, 1)
+        if bore <= 0.0:
+            gluCylinder(self._quadric, r, r, h, 24, 1)
+            gluDisk(self._quadric, 0.0, r, 24, 1)
+            glTranslatef(0.0, 0.0, h)
+            gluDisk(self._quadric, 0.0, r, 24, 1)
+        else:
+            gluCylinder(self._quadric, r, r, h, 24, 1)
+            glPushMatrix()
+            glTranslatef(0.0, 0.0, h)
+            glRotatef(180.0, 1.0, 0.0, 0.0)
+            gluCylinder(self._quadric, bore, bore, h, 24, 1)
+            glPopMatrix()
+            gluDisk(self._quadric, bore, r, 24, 1)
+            glTranslatef(0.0, 0.0, h)
+            gluDisk(self._quadric, bore, r, 24, 1)
         glColor3f(0.0, 0.0, 0.0)
         glBegin(GL_LINES)
         glVertex3f(0.0, 0.0, 0.0)
         glVertex3f(r * 0.92, 0.0, 0.0)
         glEnd()
         glPopMatrix()
+
+    def _draw_saturn_rings(self, planet_radius: float) -> None:
+        tex_id = self._texture_ids.get("SaturnRings")
+        if tex_id is None:
+            return
+        saturn_info = BODY_BY_NAME.get("Saturn")
+        if saturn_info is None or saturn_info.radius_km <= 0:
+            return
+        ratio_inner = SATURN_RING_INNER_KM / saturn_info.radius_km
+        ratio_outer = SATURN_RING_OUTER_KM / saturn_info.radius_km
+        inner = planet_radius * ratio_inner
+        outer = planet_radius * ratio_outer
+        self._draw_textured_ring(inner, outer, tex_id)
+
+    def _draw_textured_ring(self, inner: float, outer: float, tex_id: int) -> None:
+        segments = 180
+        glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, tex_id)
+        glColor4f(1.0, 1.0, 1.0, 1.0)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(GL_FALSE)
+
+        glBegin(GL_TRIANGLE_STRIP)
+        for i in range(segments + 1):
+            angle = 2.0 * math.pi * (i / segments)
+            c = math.cos(angle)
+            s = math.sin(angle)
+            u = i / segments
+            glTexCoord2f(u, 0.0)
+            glVertex3f(float(inner * c), float(inner * s), 0.0)
+            glTexCoord2f(u, 1.0)
+            glVertex3f(float(outer * c), float(outer * s), 0.0)
+        glEnd()
+
+        glDepthMask(GL_TRUE)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glDisable(GL_TEXTURE_2D)
+        glDisable(GL_BLEND)
 
     def _draw_orbit_band(self, inner: float, outer: float) -> None:
         segments = 128

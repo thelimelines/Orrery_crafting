@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..models import BODY_BY_NAME, BODY_CATALOG, BodySettings, BodyState
+from ..models import (
+    BODY_BY_NAME,
+    BODY_CATALOG,
+    SATURN_RING_INNER_KM,
+    SATURN_RING_OUTER_KM,
+    BodySettings,
+    BodyState,
+)
 
 if TYPE_CHECKING:
     _MainWindowBase = Any
@@ -164,6 +172,11 @@ class MechanicalLayoutMixin(_MainWindowBase):
             if body.parent and body.parent.upper() != "SUN":
                 parent_name = body.parent.title()
                 moons_by_parent.setdefault(parent_name, []).append(body)
+        saturn_moons = moons_by_parent.get("Saturn")
+        if saturn_moons is not None:
+            saturn_moons = list(saturn_moons)
+            saturn_moons.append(SimpleNamespace(name="SaturnRings"))
+            moons_by_parent["Saturn"] = saturn_moons
 
         moon_scaled_bounds: dict[str, tuple[float, float]] = {}
         moon_bands_by_parent: dict[str, list] = {}
@@ -172,22 +185,28 @@ class MechanicalLayoutMixin(_MainWindowBase):
 
         for parent, moons in moons_by_parent.items():
             parent_radius = body_radius_mm.get(parent, body_radius_mm.get(parent.title(), 1.0))
-            entries = []
+            entries: list[tuple[Any, float, float, bool]] = []
             min_km = None
             for moon in moons:
-                stats = self._orbit_stats.get(moon.name)
-                if stats:
-                    moon_min = stats.min_km
-                    moon_max = stats.max_km
+                if moon.name == "SaturnRings":
+                    moon_min = SATURN_RING_INNER_KM
+                    moon_max = SATURN_RING_OUTER_KM
+                    is_ring = True
                 else:
-                    current = positions.get(moon.name)
-                    if current:
-                        moon_min = moon_max = float(np.linalg.norm(np.array(current.position_km, dtype=float)))
+                    stats = self._orbit_stats.get(moon.name)
+                    if stats:
+                        moon_min = stats.min_km
+                        moon_max = stats.max_km
                     else:
-                        moon_min = moon_max = moon.mean_distance_km or 0.0
-                if min_km is None or moon_min < min_km:
+                        current = positions.get(moon.name)
+                        if current:
+                            moon_min = moon_max = float(np.linalg.norm(np.array(current.position_km, dtype=float)))
+                        else:
+                            moon_min = moon_max = moon.mean_distance_km or 0.0
+                    is_ring = False
+                if not is_ring and (min_km is None or moon_min < min_km):
                     min_km = moon_min
-                entries.append((moon, moon_min, moon_max))
+                entries.append((moon, moon_min, moon_max, is_ring))
 
             if not entries:
                 continue
@@ -199,17 +218,25 @@ class MechanicalLayoutMixin(_MainWindowBase):
 
             entries.sort(key=lambda item: item[1])
             prev_outer = parent_radius
-            for moon, moon_min, moon_max in entries:
+            for moon, moon_min, moon_max, is_ring in entries:
                 raw_min = moon_min * moon_scale
                 raw_max = moon_max * moon_scale
-                moon_radius = body_radius_mm.get(moon.name, 0.5)
-                required_min = prev_outer + moon_clearance + moon_radius
-                scaled_min = max(required_min, parent_radius + moon_clearance + moon_radius)
-                shift = scaled_min - raw_min
-                scaled_max = raw_max + shift
-                outer_surface = scaled_max + moon_radius
-                inner_surface = max(scaled_min - moon_radius, 0.0)
-                moon_scaled_bounds[moon.name] = (scaled_min, scaled_max)
+                if is_ring:
+                    moon_radius = 0.0
+                    scaled_min = raw_min
+                    scaled_max = raw_max
+                    ring_thickness = max(scaled_max - scaled_min, 0.0)
+                    outer_surface = scaled_max + ring_thickness
+                    inner_surface = max(scaled_min, 0.0)
+                else:
+                    moon_radius = body_radius_mm.get(moon.name, 0.5)
+                    required_min = prev_outer + moon_clearance + moon_radius
+                    scaled_min = max(required_min, parent_radius + moon_clearance + moon_radius)
+                    shift = scaled_min - raw_min
+                    scaled_max = raw_max + shift
+                    outer_surface = scaled_max + moon_radius
+                    inner_surface = max(scaled_min - moon_radius, 0.0)
+                    moon_scaled_bounds[moon.name] = (scaled_min, scaled_max)
                 moon_bands_by_parent.setdefault(parent, []).append((inner_surface, outer_surface))
                 prev_outer = outer_surface
             system_radius[parent] = max(prev_outer, parent_radius)
